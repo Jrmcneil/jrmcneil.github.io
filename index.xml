@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>James McNeil</title>
+    <link>http://jamesmcneil.dev/</link>
+    <description>Recent content on James McNeil</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-uk</language>
+    <lastBuildDate>Fri, 15 Nov 2019 13:30:00 +0000</lastBuildDate>
+    
+	<atom:link href="http://jamesmcneil.dev/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Coming Soon...</title>
+      <link>http://jamesmcneil.dev/posts/tcp-fd/</link>
+      <pubDate>Fri, 15 Nov 2019 13:30:00 +0000</pubDate>
+      
+      <guid>http://jamesmcneil.dev/posts/tcp-fd/</guid>
+      <description>So much content.</description>
+    </item>
+    
+  </channel>
+</rss>
