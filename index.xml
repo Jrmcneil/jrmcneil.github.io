@@ -6,18 +6,18 @@
     <description>Recent content on James McNeil</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-uk</language>
-    <lastBuildDate>Fri, 15 Nov 2019 13:30:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 30 Dec 2019 08:52:00 +0000</lastBuildDate>
     
 	<atom:link href="http://jamesmcneil.dev/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
-      <title>Coming Soon...</title>
-      <link>http://jamesmcneil.dev/posts/tcp-fd/</link>
-      <pubDate>Fri, 15 Nov 2019 13:30:00 +0000</pubDate>
+      <title>Always close the response body! Running out of file descriptors in Golang</title>
+      <link>http://jamesmcneil.dev/posts/golang-response-body/</link>
+      <pubDate>Mon, 30 Dec 2019 08:52:00 +0000</pubDate>
       
-      <guid>http://jamesmcneil.dev/posts/tcp-fd/</guid>
-      <description>So much content.</description>
+      <guid>http://jamesmcneil.dev/posts/golang-response-body/</guid>
+      <description>In Go you cannot just fire and forget a function. Failing to handle the return types could lead your program to fail. It is quite easy, for instance, to leak file descriptors. This is very, very bad for long-running or high throughput processes. Check for leaks.</description>
     </item>
     
   </channel>

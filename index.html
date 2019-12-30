@@ -49,14 +49,14 @@
 
 	<div class="catalogue">
 		
-			<a href="http://jamesmcneil.dev/posts/tcp-fd/" class="catalogue-item">
+			<a href="http://jamesmcneil.dev/posts/golang-response-body/" class="catalogue-item">
     <div>
-        <time datetime="2019-11-15 13:30:00 &#43;0000 UTC" class="catalogue-time">November 15, 2019</time>
-        <h1 class="catalogue-title">Coming Soon...</h1>
+        <time datetime="2019-12-30 08:52:00 &#43;0000 UTC" class="catalogue-time">December 30, 2019</time>
+        <h1 class="catalogue-title">Always close the response body! Running out of file descriptors in Golang</h1>
         <div class="catalogue-line"></div>
 
         <p>
-            So much content.
+            In Go you cannot just fire and forget a function. Failing to handle the return types could lead your program to fail. It is quite easy, for instance, to leak file descriptors. This is very, very bad for long-running or high throughput processes. Check for leaks.
         </p>
     </div>
 </a>
@@ -75,7 +75,7 @@
 
         		<footer>
 			<span>
-			&copy; <time datetime="2019-11-15 15:57:43.468745 &#43;0000 GMT m=&#43;0.063964185">2019</time> . Made with <a href='https://gohugo.io'>Hugo</a> using the <a href='https://github.com/EmielH/tale-hugo/'>Tale</a> theme.
+			&copy; <time datetime="2019-12-30 17:40:41.264373 &#43;0000 GMT m=&#43;0.062366264">2019</time> . Made with <a href='https://gohugo.io'>Hugo</a> using the <a href='https://github.com/EmielH/tale-hugo/'>Tale</a> theme.
 			</span>
 		</footer>
 
