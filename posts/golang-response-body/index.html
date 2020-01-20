@@ -59,11 +59,12 @@ types could lead your program to fail. It is quite easy, for instance, to leak
 file descriptors. This is very, very bad for long-running or high throughput
 processes. Check for leaks.</p>
 
-<p>Say you have a web server. And that web server exists to provide a REST API to
-some other tool. In our case it was a message broker. But it could be any
+<p>Consider a web server built to provide a REST API to
+some other tool. Our example is for a message broker, but this could be any
 software you want to proxy or apply a standard interface to. Users send CRUD
-requests to the server and a client library does the heavy lifting. Consider
-the following pseudo-code:</p>
+requests to the server and a client library does the heavy lifting. The
+following code is being called when the server receives a DELETE request
+for an app:</p>
 
 <pre><code>func (s *Server) Disconnect(req Request) error {
 
@@ -90,10 +91,9 @@ the following pseudo-code:</p>
 }
 </code></pre>
 
-<p>This function is being called when the server receives a DELETE request for an
-app. Each app has an associated user in the broker. Over the lifetime of that
+<p>Each app has an associated user in the broker. Over the lifetime of that
 user they may have created any number of independent connections (e.g. message
-queues). We want to delete the ssociated user. We then check for orphaned
+queues). We want to delete the associated user. We then check for orphaned
 connections and close them one by one.</p>
 
 <p>The problem is that we&rsquo;ve forgotten to consider the response type of
@@ -119,15 +119,14 @@ streaming.</p>
 
 <p>Every call to <code>CloseConnection</code> opens a file descriptor. If the response body
 is not closed, that file descriptor will never be closed. In fact, it will be
-stuck in a state called <code>CLOSE_WAIT</code> indefinitely (we&rsquo;ll look at what exactly
-is happening at the connection level in a subsequent post). The file descriptor
+stuck in a state called <code>CLOSE_WAIT</code> indefinitely. The file descriptor
 limit varies between kernels and can be altered but a common default for a
 shell (<code>ulimit -n</code>) is 1024. If the processes spawned by that shell exceed its
 FD limit, any attempt to open another one - in this case to open another TCP
 socket - will fail with an <code>EMFILE (Too many open files)</code> error. And that&rsquo;s
 basically you done. The process can be restarted. The ulimit can be set higher.
  But the problem will persist until the source of the leak is fixed. We need to
- handle the response and error of <code>CloseConnection</code>:</p>
+ handle the response and error of <code>CloseConnection</code> and close the response body:</p>
 
 <pre><code>  resp, err := s.client.CloseConnection(connection.Name)
   if err != nil {
@@ -143,8 +142,8 @@ ship. Without a properly configured long running environment, the only place
 this will manifest itself is in prod. This is bad enough for a server you
 mantain. In the very worst case you&rsquo;ll have an incident, get paged in the
 middle of the night to restart the server and maybe bump the ulimit so that you
-can fix it in the morning. If you ship it as a binary this can be incredibly
-painful. I wish this on nobody.</p>
+can fix it in the morning. If you ship it as a binary your only option will be
+to ship a new release.</p>
 
 <p>Beyond trying your very hardest to not make this mistake (ever), consider the
 failure modes of the application you&rsquo;re trying to build. Test for them where
@@ -168,7 +167,7 @@ state 8 (<code>CLOSE_WAIT</code>).</p>
 
         		<footer>
 			<span>
-			&copy; <time datetime="2019-12-31 13:07:12.04023 &#43;0000 GMT m=&#43;0.164346756">2019</time> . Made with <a href='https://gohugo.io'>Hugo</a> using the <a href='https://github.com/EmielH/tale-hugo/'>Tale</a> theme.
+			&copy; <time datetime="2020-01-21 07:14:29.485705 &#43;0000 GMT m=&#43;0.060107724">2020</time> . Made with <a href='https://gohugo.io'>Hugo</a> using the <a href='https://github.com/EmielH/tale-hugo/'>Tale</a> theme.
 			</span>
 		</footer>
 
