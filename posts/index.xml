@@ -6,10 +6,19 @@
     <description>Recent content in Posts on James McNeil</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-uk</language>
-    <lastBuildDate>Mon, 30 Dec 2019 08:52:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 10 May 2020 07:16:17 +0000</lastBuildDate>
     
 	<atom:link href="https://jamesmcneil.dev/posts/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>A Study Guide to Confusingly Named Consistency Guarantees</title>
+      <link>https://jamesmcneil.dev/posts/consistency-guarantees/</link>
+      <pubDate>Sun, 10 May 2020 07:16:17 +0000</pubDate>
+      
+      <guid>https://jamesmcneil.dev/posts/consistency-guarantees/</guid>
+      <description>There are a huge number of terms used when describing consistency guarantees in distributed systems. What&amp;rsquo;s the difference between serializable and linearizable? What&amp;rsquo;s a &amp;lsquo;dirty read&amp;rsquo;? How do these concepts map between SQL and NoSQL databases? What, in other words, is Kyle Kingsbury actually talking about? I personally find the concepts very confusing. For one thing, everyone uses slightly different terminology for similar or adjacent concepts. Martin Kleppmann helpfully points out that it&amp;rsquo;s not just me.</description>
+    </item>
     
     <item>
       <title>Always close the response body! Running out of file descriptors in Golang</title>

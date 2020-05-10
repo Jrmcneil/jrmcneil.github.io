@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en-uk">
+    <head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+		<title>A Study Guide to Confusingly Named Consistency Guarantees &middot; James McNeil</title>
+
+		
+  		<link rel="stylesheet" href="/css/style.css">
+		<link rel="stylesheet" href="/css/fonts.css">
+		
+		<link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+		<link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+		<link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+
+		
+		<link href="" rel="alternate" type="application/rss+xml" title="James McNeil" />
+	</head>
+
+    <body>
+        		<nav class="nav">
+			<div class="nav-container">
+				<a href="/">
+					<h2 class="nav-title">James McNeil</h2>
+				</a>
+				<ul>
+    
+    
+        <li>
+            <a href="/posts/">
+                
+                <span>Posts</span>
+                
+            </a>
+        </li>
+    
+</ul>
+			</div>
+		</nav>
+
+        
+
+<main>
+	<div class="post">
+		<div class="post-info">
+    <span>Written by</span>
+        
+        <br>
+        <span>on&nbsp;</span><time datetime="2020-05-10 07:16:17 &#43;0000 UTC">May 10, 2020</time>
+</div>
+		<h1 class="post-title">A Study Guide to Confusingly Named Consistency Guarantees</h1>
+<div class="post-line"></div>
+
+		
+
+		
+
+<p>There are a huge number of terms used when describing consistency guarantees in distributed systems. What&rsquo;s the difference between serializable and linearizable? What&rsquo;s a &lsquo;dirty read&rsquo;? How do these concepts map between SQL and NoSQL databases? What, in other words, is <a href="https://www.jepsen.io">Kyle Kingsbury</a> actually talking about? I personally find the concepts very confusing. For one thing, everyone uses slightly different terminology for similar or adjacent concepts. Martin Kleppmann helpfully <a href="https://youtu.be/5ZjhNTM8XU8?t=88">points out</a> that it&rsquo;s not just me. The study of consistency guarantees started from an analysis of early databases. The terms reflect their naming conventions, however odd, and isolation levels, however desirable or practical.</p>
+
+<p>Right now I work mostly with messaging middleware. It&rsquo;s surprising how many conversations I&rsquo;ve had with people who implicitly assume their messaging solutions offer transactional guarantees. Professionally, I feel like it&rsquo;s important to get these concepts straight in my own head to be clear when helping others. So here is a quick and dirty study guide of confusingly named consistency models.</p>
+
+<h2 id="acid-transactions">ACID transactions</h2>
+
+<p>Transactions are the units of work of relational database management systems (RDBMS): sets of read and write operations ending in a commit which saves any changes. Transactions are said to be <strong>A</strong>tomic, <strong>C</strong>consistent, <strong>I</strong>solated, and <strong>D</strong>urable.</p>
+
+<ul>
+<li><p><strong>Durability</strong>: Starting last, durability is a reference to when data was saved on actual tape. Durability can be approximated to &lsquo;will persist after a shutdown or restart&rsquo;. In modern databases, replication can also be considered a guarantee of durability.</p></li>
+
+<li><p><strong>Atomicity</strong>: Transactions are all or nothing. They can have many steps involving a series of reads and writes to different tables in the database before committing. Atomicity guarantees abortability by <a href="https://youtu.be/5ZjhNTM8XU8?t=485">&ldquo;manipulating multiple objects as one&rdquo;</a>. If a transaction fails or aborts, none of the intermediate operations will be persisted.</p></li>
+
+<li><p><strong>Consistency</strong>: ACID consistency refers more to an accounting guarantee than consistent state. The condition requires that integrity of the system should be maintained after a state change. For instance, after a bank transfer from one account to another you should expect that the net amount in the two accounts stays them same. Seeing the amount arrive in one account before it appears to have been removed from the other (or vice versa) would break consistency.</p></li>
+
+<li><p><strong>Isolation</strong>: The effect of all the transactions is as if they occured serially (one after the other)&hellip; hence the term <em>serializability</em>. Concurrent operations are never visible to the transaction. Instead, transactions are interleaved as if all of their operations started after the &lsquo;previous&rsquo; transaction&rsquo;s one&rsquo;s operations finished.</p></li>
+</ul>
+
+<h2 id="strict-serializability">Strict Serializability</h2>
+
+<p>Serializability relates to the effect of <a href="http://www.bailis.org/blog/linearizability-versus-serializability/">&ldquo;groups of one or more operations over one or more objects&rdquo;</a>. In a distributed system there can be different levels of serializability. For instance, consider a database which commits transactions T<sub>1</sub> and T<sub>2</sub> serially (in that order). The database is backed up asynchronously to a read replica. There are no checks in the replica on order of receipt, T<sub>2</sub> arrives before T<sub>1</sub>, and the transactions are committed in reverse order. Both the database and its replica have committed their transactions in a locally consistent serial ordering, but the replica&rsquo;s ordering is obviously wrong. <a href="http://dbmsmusings.blogspot.com/2019/06/correctness-anomalies-under.html">&ldquo;One copy serializability&rdquo;</a> refers to all replicas of a system acting as if there was one data item (i.e. serial order for any operation is the same regardless of which replica is contacted).</p>
+
+<p>One copy serializable systems can still present anomalies due to <a href="https://youtu.be/IjsJLTriLzs">clock skew</a>. For instance, a (commited) write with timestamp <em>t=2</em> to a data object is ignored because an earlier (committed) write&rsquo;s timestamp is <em>t=3</em>, regardless of the way the user think&rsquo;s time is supposed to work. It&rsquo;s also possible for all writes to be overidden by an <a href="http://dbmsmusings.blogspot.com/2019/06/correctness-anomalies-under.html">immortal write</a>, where the system decides one commit is serially after any other future transaction. A system is said to be linearlizable if such time-travel anomalies are not possible:</p>
+
+<p><em>&ldquo;Linearizability is a guarantee about single operations on single objects. It provides a real-time (i.e. wall clock) guarantee on the behaviour of a set of single operations (often reads and writes) on a single object (e.g., distributed register or data item). [&hellip;] Linearizability [&hellip;] is synonimous with atomic consistency [</em> <strong>(the C in CAP)</strong> <em>]. [&hellip;] We say linearizability is composable (or “local”) because, if operations on each object in a system are linearizable, then all operations in the system are linearizable.&rdquo; - <a href="http://www.bailis.org/blog/linearizability-versus-serializability/">Peter Baillis</a></em></p>
+
+<p>Strict (or Strong) Serializability refers to systems which are both (one-copy) serializable and linearizable.</p>
+
+<p>There are two main ways of ensuring strict serializability:</p>
+
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Two-phase_locking"><strong>2-Phase Locking</strong></a>: When data is read, the transaction acquires a <strong>shared lock</strong> which stops all writes to that data.
+
+<ul>
+<li>Other transactions can still read (by acquiring their own shared locks of) the same data. A general query can lock the entire database until it is complete.</li>
+<li>Writes take an <strong>exclusive lock</strong> which stops any other reads (via shared locks) or writes (via other exclusive locks) while it is held.</li>
+<li>In 2-phase locking, all the locks a transaction needs are acquired (<em>phase 1</em>) before any of them are released (<em>phase 2</em>).</li>
+<li>There are several different flavours of 2-phase locking with different rules around when a transaction&rsquo;s locks can be taken and released within each phase (e.g. in strong strict 2-phase locking, no locks are released until after commit).</li>
+</ul></li>
+<li><strong>H-Store</strong> (VaultDB, 2007): Take all requests and force them to run serially. Effectively make interaction with the DB single-threaded. Requires very fast transactions:
+
+<ul>
+<li>Data is held in memory (disk reads are too slow)</li>
+<li>Stored procedures are used so each transaction is transmitted in one request</li>
+</ul></li>
+</ul>
+
+<h2 id="less-than-strict-serializability">Less-than-strict serializability</h2>
+
+<p>Serializability and linearizability <a href="http://www.bailis.org/blog/linearizability-versus-serializability/">require coordination</a>. As a result, a strict serializable system cannot guarantee availabilty in an asynchronous network (<a href="https://en.wikipedia.org/wiki/CAP_theorem">CAP Theorem</a> et al.). In order to achieve better availability guarantees, various systems have been designed with more relaxed subsets of conditions than both serializability and linearizability.  Jepsen has an incredibly helpful <a href="https://jepsen.io/consistency">map</a> of these various consistency models.</p>
+
+<h3 id="relaxing-serializability">Relaxing Serializability</h3>
+
+<p>I&rsquo;ll cover serializability models starting with the least strict.</p>
+
+<ul>
+<li><strong>Read Uncommited</strong> prevents <strong>dirty writes</strong>:
+
+<ul>
+<li>One transaction commits and overwrite&rsquo;s an uncommitted transaction&rsquo;s write to the same data object.</li>
+<li><em>e.g.</em> T<sub>1</sub> writes <em>x=1</em> -&gt; T<sub>2</sub> writes <em>x=4</em> -&gt; T<sub>2</sub> commits -&gt; T<sub>1</sub> commits -&gt; <em>x=4</em></li>
+</ul></li>
+<li><strong>Read Commmited</strong> builds on read uncommited and adds a guarantee against <strong>dirty reads</strong>:
+
+<ul>
+<li>One transaction reads writes that another transaction has not yet committed.</li>
+<li><em>e.g.</em> T<sub>1</sub> writes <em>x=1</em> -&gt; T<sub>2</sub> reads <em>x=1</em> -&gt; T<sub>1</sub> commits</li>
+</ul></li>
+<li>Read committed isolation can fail due to <strong>read skew</strong>:
+
+<ul>
+<li>A read transaction concurrent with a write transaction gets an inconsistent state of the data. For instance, one key is read before the write transaction was started and another after.</li>
+<li><em>e.g.</em> <em>x=1</em>, <em>y=0</em> -&gt; T<sub>1</sub> reads <em>x=1</em> -&gt; T<sub>2</sub> writes <em>x=3</em> -&gt; T<sub>2</sub> writes <em>y=4</em> -&gt; T<sub>2</sub> commits -&gt; T<sub>1</sub> reads <em>y=4</em> -&gt; T<sub>1</sub> commits read (<em>x=1</em>, <em>y=4</em>)</li>
+</ul></li>
+<li><strong>Cursor stability</strong> is an extension of read commited where each transaction gets a lock (&ldquo;cursor&rdquo;) on every object it reads, preventing concurrent transactions from modifying those objects until the cursor is released.</li>
+<li><strong>Repeatable Read</strong> extends cursor stability&rsquo;s write lock to predicates (i.e. WHERE clauses).</li>
+<li><strong>Snapshot Isolation</strong> guarantees that every transaction acts as if it is the only one being conducted on the database for its duration. The transaction gets a point-in-time &lsquo;snapshot&rsquo; of the database).
+
+<ul>
+<li>In <strong>multi-version concurrency control (MVCC)</strong> snapshot isolation, a database internally keeps multiple version of the same data item and will present each transaction with the one relevant to its &lsquo;time-cut&rsquo;. Practically, this is achieved by taking non-blocking locks whenever there is a read or write. The locks record any conflicts in data that has been written to during a transaction. At the end of the transaction, the lock ledger is analysed to decide if the transaction is safe. The transaction is aborted atomically if it violates serializability. If there is a lot of contention, there will be many aborts.</li>
+</ul></li>
+<li>Snapshot isolation can fail to be serializable due to <strong>write skew</strong>:
+
+<ul>
+<li>Writes based on out of date read state lead to violations of consistency invariants (e.g. &lsquo;at least 1 instance of x must be true at all times&rsquo;). &ldquo;By the time the <em>write</em> is committed, the <em>premise</em> of the <em>decision</em> is <strong>no longer true</strong>&rdquo; (<a href="https://youtu.be/5ZjhNTM8XU8?t=1221">Kleppmann</a>). If the writes happen to different places/shards in the database, a straightforward lock won&rsquo;t stop the database from being put in an inconsistent state.</li>
+</ul></li>
+</ul>
+
+<h3 id="relaxing-linearizability">Relaxing Linearizability</h3>
+
+<p>Causality is important for building meaningful applications. However, there are different levels of causal guarantees available:</p>
+
+<ul>
+<li><strong>Monotonic reads</strong>: A process has seen a particular value on a read, no subsequent reads will return an earlier value for the same data. Reads cannot be rewound.</li>
+<li><strong>Monotonic writes</strong>: A process&rsquo;s writes are  guaranteed to be persisted in their commit order. If process P<sub>a</sub> writes <em>x=1</em> and (commits and) then writes <em>x=2</em>, all processes reading that data over its history will read them in the correct order.</li>
+<li><strong>Read-your-writes</strong>: A process will always read it&rsquo;s most up to date writes. This is causal consistency for a single process.</li>
+<li><strong>Session causality</strong>: A Process that reads a value <em>x=1</em> from an object and then writes <em>x=2</em> to it must see its updated write on subsequent reads. In other words, read-your-writes consistency is guaranteed for the duration of a session. Guarantees do not overlap if a session ends.</li>
+<li><strong>Causal Consistency</strong>: Processes agree on the order of causally related operations. If P<sub>a</sub> confirms a series of writes to P<sub>b</sub>, P<sub>b</sub> will read the correct value and write history. P<sub>c</sub> with no causal relationship to P<sub>a</sub> has no such guarantee</li>
+<li><strong>Sequential consistency</strong>: All processes agree on a global order of operations. No process will read data that is inconsistent with that order. However, processes don&rsquo;t necessarily agree on <em>where</em> they are in that ordering. They don&rsquo;t have to agree on what time &lsquo;it is&rsquo;.</li>
+</ul>
+
+<p><strong>Linearizability is sequential consistency with a real-time guarantee.</strong></p>
+
+<h3 id="reaching-consensus-in-distributed-systems">Reaching consensus in distributed systems</h3>
+
+<p>These consistency models were developed primarily for single monolithic databases. They&rsquo;ve been extended in different ways to apply to microservices.</p>
+
+<p>One convention for microservices is to say that there is a transaction boundary around each service (assuming they each have a local database). This approach treats each microservice as its own monolith and doesn&rsquo;t attempt to make achieve any higher level transactional guarantees.</p>
+
+<p>On the other hand, implementing transactions across a multi-node database requires consensus. The two most common consensus protocols are <a href="https://en.wikipedia.org/wiki/Raft_(computer_science)">Raft</a> and <a href="https://en.wikipedia.org/wiki/Paxos_(computer_science)">Paxos</a>. Sarah Christoff has <a href="https://www.youtube.com/watch?v=Hm_m4MIXn9Q">a great</a> summary of the differences between the two so I won&rsquo;t try.</p>
+
+<p>Implementing a consensus protocol can be very difficult in practice because they are quite sensitive to latency. For instance, Raft relies on a heartbeat from other nodes to know when to trigger an election. It is generally suggested not to span AZs (or potentially even datacenters) when deploying CP systems which rely on consensus (e.g. Zookeeper) because the latency hit can severly impact their ability to maintain a stable quorum.</p>
+
+<h2 id="prioritizing-availability">Prioritizing Availability</h2>
+
+<p>The cost in downtime and coordination effort of guaranteeing consistency is too much for certain types of applications. Firms who&rsquo;s globe spanning operations require higher availability than consensus-based approaches can provide favour AP eventually consistent systems. Werner Vogels describes these <em>eventuallly consistent</em> models as a means of <a href="https://www.allthingsdistributed.com/2008/12/eventually_consistent.html">&ldquo;building reliable distributed systems at a worldwide scale&rdquo;</a>. With no subsequent updates, eventually all reads will converge on the same value.</p>
+
+<p><em>&ldquo;If no failures occur, the maximum size of the inconsistency window can be determined based on factors such as communication delays, the load on the system, and the number of replicas involved in the replication scheme.&rdquo; - <a href="https://www.allthingsdistributed.com/2008/12/eventually_consistent.html">Werner Vogels</a></em></p>
+
+<p>If eventual consistency is a good enough guarantee for an application there are many options for how to reconcile state. However, all options require a more relaxed interpretation of what constitutes the lifetime of a transaction (and, informally, how long it might take to roll back):</p>
+
+<ul>
+<li><strong>Compensating transactions</strong>: rolling back writes after the fact at the app level. <a href="https://www.youtube.com/watch?v=YPbGW3Fnmbc">Sagas</a> are a pattern for long-lived transactions. They use messsage passing to signal the need to roll back (or &lsquo;commit&rsquo;) operations from independant ACID transactions on different services.</li>
+<li><strong>Apologies</strong>: Reaching out to customers if an invariant has been violated and compensating them for the inconsistency (e.g. offering a gift voucher if the product they ordered is not in fact available)</li>
+</ul>
+
+<h2 id="server-side-consistency">Server-side Consistency</h2>
+
+<p>These consistency models treat the database as a black box. In practice, the number of nodes of a distributed database required to process reads or writes has a meaningful impact on the guarantees it can offer.</p>
+
+<p><em>N = number of replicas for given data (which will all be eventually updated)</em></br>
+<em>W = number of replicas that need to ack a write in order for a write to be committed</em></br>
+<em>R = number of replicas that need to ack a (consistent) read in order for a read to be committed</em></br>
+<em>(obviously W &lt;= N, R &lt;= N)</em></p>
+
+<ul>
+<li><strong>W + R &gt; N</strong>: The read and write sets will always overlap. The database will be at least partially unavailable in the event of a partition. The values of <strong>W</strong> and <strong>R</strong> determine whether reads or writes (or both) will fail.
+
+<ul>
+<li><strong>R = 1, W = N</strong>: Optimize for reads. Writes will fail if there is a failure or partition.</li>
+<li><strong>W = 1, R = N</strong>: Optimize for writes. Reads will fail if there is a failure or partition.</li>
+</ul></li>
+<li><strong>W &lt; (N + 1)/2</strong>: Writes to less than quorum. Write sets for subsequent writes might not overlap. Monotonic writes cannot be guaranteed.</li>
+<li><strong>W + R &lt;= N</strong>: Weak/eventual consistency. Reads can occur from a set of nodes that have not seen a write yet.</li>
+</ul>
+
+<h2 id="round-up">Round up</h2>
+
+<p>Clearly, there are levels to this. Pay attention to the guarantees provided by your database. Be careful when making promises to your customers about what your system guarantees. And be clear about what you can offer. Bear in mind that the way we think about databases and stateful systems in general is as much about their history as the logic that underpins them.</p>
+
+<h2 id="sources">Sources</h2>
+
+<ul>
+<li><a href="https://www.amazon.co.uk/Designing-Data-Intensive-Applications-Reliable-Maintainable/dp/1449373321">Designing Data-Intensive Applications</a>, Martin Kleppmann</li>
+<li><a href="https://www.youtube.com/watch?v=5ZjhNTM8XU8&amp;t">Transactions: myths, surprises and opportunities</a>, Martin Kleppman</li>
+<li><a href="https://www.allthingsdistributed.com/2008/12/eventually_consistent.html">Eventually Consistent - Revisited</a>&rdquo;, Werner Vogels</li>
+<li><a href="https://www.youtube.com/watch?v=em9zLzM8O7c">Consistency without consensus in production systems</a>, Peter Bourgon</li>
+<li><a href="http://dbmsmusings.blogspot.com/2019/08/an-explanation-of-difference-between.html">An explanation of the difference between Isolation levels vs. Consistency levels</a>, Daniel Abadi</li>
+<li><a href="http://dbmsmusings.blogspot.com/2019/06/correctness-anomalies-under.html">Correctness Anomalies Under Serializable Isolation</a>, Danile Abadi</li>
+<li><a href="http://dbmsmusings.blogspot.com/2019/07/overview-of-consistency-levels-in.html">Overview of Consistency Levels in Database Systems</a>, Daniel Abadi</li>
+<li><a href="http://jepsen.io/consistency">Consistency Models</a>, Kyle Kingsbury</li>
+<li><a href="https://aphyr.com/posts/333-serializability-linearizability-and-locality">Serializability, linearizability, and locality</a>, Kyle Kingsbury</li>
+<li><a href="https://aphyr.com/posts/313-strong-consistency-models">Strong consistency models</a>, Kyle Kingsbury</li>
+<li><a href="http://www.bailis.org/blog/linearizability-versus-serializability/">Linearizability versus Serializability</a>, Peter Bailis</li>
+<li><a href="https://www.youtube.com/watch?v=Hm_m4MIXn9Q">You. Must. Build. A. Raft!</a>, Sarah Christoff</li>
+<li><a href="https://blog.acolyer.org/2016/02/24/a-critique-of-ansi-sql-isolation-levels/">The morning paper: A Critique of ANSI SQL Isolation Levels</a>, Adrian Colyer (on Berenson et al.)</li>
+<li><a href="https://www.youtube.com/watch?v=YPbGW3Fnmbc">Using sagas to maintain data consistency in a microservice architecture</a>, Chris Richardson</li>
+</ul>
+
+
+		
+	</div>
+
+	<div class="pagination">
+		<a href="/posts/golang-response-body/" class="left arrow">&#8592;</a>
+
+		<a href="#" class="top">Top</a>
+	</div>
+</main>
+
+
+        		<footer>
+			<span>
+			&copy; <time datetime="2020-05-10 15:02:22.74909 &#43;0100 BST m=&#43;0.054689943">2020</time> . Made with <a href='https://gohugo.io'>Hugo</a> using the <a href='https://github.com/EmielH/tale-hugo/'>Tale</a> theme.
+			</span>
+		</footer>
+
+    </body>
+</html>
