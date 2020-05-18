@@ -1,72 +1,12 @@
-<!DOCTYPE html>
-<html lang="en-uk">
-    <head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-		<title>Always close the response body! Running out of file descriptors in Golang &middot; James McNeil</title>
-
-		
-  		<link rel="stylesheet" href="/css/style.css">
-		<link rel="stylesheet" href="/css/fonts.css">
-		
-		<link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
-		<link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
-		<link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
-
-		
-		<link href="" rel="alternate" type="application/rss+xml" title="James McNeil" />
-	</head>
-
-    <body>
-        		<nav class="nav">
-			<div class="nav-container">
-				<a href="/">
-					<h2 class="nav-title">James McNeil</h2>
-				</a>
-				<ul>
-    
-    
-        <li>
-            <a href="/posts/">
-                
-                <span>Posts</span>
-                
-            </a>
-        </li>
-    
-</ul>
-			</div>
-		</nav>
-
-        
-
-<main>
-	<div class="post">
-		<div class="post-info">
-    <span>Written by</span>
-        
-        <br>
-        <span>on&nbsp;</span><time datetime="2019-12-30 08:52:00 &#43;0000 UTC">December 30, 2019</time>
-</div>
-		<h1 class="post-title">Always close the response body! Running out of file descriptors in Golang</h1>
-<div class="post-line"></div>
-
-		
-
-		<p>In Go you cannot just fire and forget a function. Failing to handle the return
+<!doctype html><html lang=en-uk><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Always close the response body! Running out of file descriptors in Golang &middot; James McNeil</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel=icon type=image/png sizes=32x32 href=/images/favicon-32x32.png><link rel=icon type=image/png sizes=16x16 href=/images/favicon-16x16.png><link rel=apple-touch-icon sizes=180x180 href=/images/apple-touch-icon.png><link href rel=alternate type=application/rss+xml title="James McNeil"></head><body><nav class=nav><div class=nav-container><a href=/><h2 class=nav-title>James McNeil</h2></a><ul><li><a href=/posts/><span>Posts</span></a></li></ul></div></nav><main><div class=post><div class=post-info><span>Written by</span><br><span>on&nbsp;</span><time datetime="2019-12-30 08:52:00 &#43;0000 UTC">December 30, 2019</time></div><h1 class=post-title>Always close the response body! Running out of file descriptors in Golang</h1><div class=post-line></div><p>In Go you cannot just fire and forget a function. Failing to handle the return
 types could lead your program to fail. It is quite easy, for instance, to leak
 file descriptors. This is very, very bad for long-running or high throughput
-processes. Check for leaks.</p>
-
-<p>Consider a web server built to provide a REST API to
+processes. Check for leaks.</p><p>Consider a web server built to provide a REST API to
 some other tool. Our example is for a message broker, but this could be any
 software you want to proxy or apply a standard interface to. Users send CRUD
 requests to the server and a client library does the heavy lifting. The
 following code is being called when the server receives a DELETE request
-for an app:</p>
-
-<pre><code>func (s *Server) Disconnect(req Request) error {
+for an app:</p><pre><code>func (s *Server) Disconnect(req Request) error {
 
   ...
 
@@ -89,35 +29,25 @@ for an app:</p>
 
   return nil
 }
-</code></pre>
-
-<p>Each app has an associated user in the broker. Over the lifetime of that
+</code></pre><p>Each app has an associated user in the broker. Over the lifetime of that
 user they may have created any number of independent connections (e.g. message
 queues). We want to delete the associated user. We then check for orphaned
-connections and close them one by one.</p>
-
-<p>The problem is that we&rsquo;ve forgotten to consider the response type of
+connections and close them one by one.</p><p>The problem is that we&rsquo;ve forgotten to consider the response type of
 <code>CloseConnection</code>. <code>ListConnections</code> returns a struct generated in the client
 libary. But <code>CloseConnection</code> just forwards the HTTP response from the broker.
-The documentation for &ldquo;net/http&rdquo; states:</p>
-
-<p>&ldquo;If the returned error is nil, the Response will contain a non-nil Body which
+The documentation for &ldquo;net/http&rdquo; states:</p><p>&ldquo;If the returned error is nil, the Response will contain a non-nil Body which
 the user is expected to close. If the Body is not both read to EOF and closed,
 the Client&rsquo;s underlying RoundTripper (typically Transport) may not be able to
 re-use a persistent TCP connection to the server for a subsequent &ldquo;keep-alive&rdquo;
-request.&rdquo;</p>
-
-<p><code>Response.Body</code> implements an <code>io.Reader</code> so that the <a href="https://golang.org/src/net/http/response.go">&ldquo;response
+request.&rdquo;</p><p><code>Response.Body</code> implements an <code>io.Reader</code> so that the <a href=https://golang.org/src/net/http/response.go>&ldquo;response
 body is streamed on demand as the Body field is
 read&rdquo;</a>. This way the response can be
-piped to a decoder and avoid buffering very long messages in memory.  But this
+piped to a decoder and avoid buffering very long messages in memory. But this
 also means the client has to explicitly decide when it has finished with the
 stream. Some other languages (e.g.
-<a href="https://docs.ruby-lang.org/en/2.0.0/Net/HTTP.html#class-Net::HTTP-label-Streaming+Response+Bodies">ruby</a>)
+<a href=https://docs.ruby-lang.org/en/2.0.0/Net/HTTP.html#class-Net::HTTP-label-Streaming+Response+Bodies>ruby</a>)
 read the entire message into memory by default and have a different syntax for
-streaming.</p>
-
-<p>Every call to <code>CloseConnection</code> opens a file descriptor. If the response body
+streaming.</p><p>Every call to <code>CloseConnection</code> opens a file descriptor. If the response body
 is not closed, that file descriptor will never be closed. In fact, it will be
 stuck in a state called <code>CLOSE_WAIT</code> indefinitely. The file descriptor
 limit varies between kernels and can be altered but a common default for a
@@ -125,52 +55,26 @@ shell (<code>ulimit -n</code>) is 1024. If the processes spawned by that shell e
 FD limit, any attempt to open another one - in this case to open another TCP
 socket - will fail with an <code>EMFILE (Too many open files)</code> error. And that&rsquo;s
 basically you done. The process can be restarted. The ulimit can be set higher.
- But the problem will persist until the source of the leak is fixed. We need to
- handle the response and error of <code>CloseConnection</code> and close the response body:</p>
-
-<pre><code>  resp, err := s.client.CloseConnection(connection.Name)
+But the problem will persist until the source of the leak is fixed. We need to
+handle the response and error of <code>CloseConnection</code> and close the response body:</p><pre><code>  resp, err := s.client.CloseConnection(connection.Name)
   if err != nil {
     return err
   }
 
   defer resp.Body.Close()
-</code></pre>
-
-<p>This bug is a slow burn. Unless your CI includes some kind of very high
+</code></pre><p>This bug is a slow burn. Unless your CI includes some kind of very high
 throughput perf test, you&rsquo;re unlikely to run out of file descriptors before you
 ship. Without a properly configured long running environment, the only place
 this will manifest itself is in prod. This is bad enough for a server you
 mantain. In the very worst case you&rsquo;ll have an incident, get paged in the
 middle of the night to restart the server and maybe bump the ulimit so that you
 can fix it in the morning. If you ship it as a binary your only option will be
-to ship a new release.</p>
-
-<p>Beyond trying your very hardest to not make this mistake (ever), consider the
+to ship a new release.</p><p>Beyond trying your very hardest to not make this mistake (ever), consider the
 failure modes of the application you&rsquo;re trying to build. Test for them where
 possible. If you&rsquo;re building a web server, this should include testing for file
 descriptor leaks. Check <code>lsof</code> for TCP connections in <code>CLOSE_WAIT</code> after
 your end to end test run. Or if you&rsquo;re feeling minimalist, you can check
-<a href="https://www.kernel.org/doc/Documentation/networking/proc_net_tcp.txt">/proc/net/tcp</a>
+<a href=https://www.kernel.org/doc/Documentation/networking/proc_net_tcp.txt>/proc/net/tcp</a>
 for connections from your server&rsquo;s port (in hexadecimal) that have connection
-state 8 (<code>CLOSE_WAIT</code>).</p>
-
-
-		
-	</div>
-
-	<div class="pagination">
-		<a href="/posts/consistency-guarantees/" class="right arrow">&#8594;</a>
-
-		<a href="#" class="top">Top</a>
-	</div>
-</main>
-
-
-        		<footer>
-			<span>
-			&copy; <time datetime="2020-05-10 16:10:07.36835 &#43;0100 BST m=&#43;0.056554668">2020</time> . Made with <a href='https://gohugo.io'>Hugo</a> using the <a href='https://github.com/EmielH/tale-hugo/'>Tale</a> theme.
-			</span>
-		</footer>
-
-    </body>
-</html>
+state 8 (<code>CLOSE_WAIT</code>).</p></div><div class=pagination><a href=/posts/consistency-guarantees/ class="right arrow">&#8594;</a>
+<a href=# class=top>Top</a></div></main><footer><span>&copy; <time datetime="2020-05-18 07:57:01.547616 &#43;0100 BST m=&#43;0.099324120">2020</time> . Made with <a href=https://gohugo.io>Hugo</a> using the <a href=https://github.com/EmielH/tale-hugo/>Tale</a> theme.</span></footer></body></html>
